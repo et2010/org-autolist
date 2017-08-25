@@ -102,6 +102,35 @@ This function uses the same logic as `org-beginning-of-line' when
   (message "evaluating...")
   (org-list-at-regexp-after-bullet-p "\\(\\s-*\\)::\\(\\s-*$\\)"))
 
+(defun org-autolist-at-item-end-p ()
+  "Is point at the end of a list item?"
+  (let* ((element (org-element-context))
+         (parent (org-export-get-parent-element element)))
+    (and (eolp)
+         (or
+          ;; element's parent element is a list item
+          (and parent
+               (eq 'item (org-element-type parent)))
+          ;; element itself is a plain list
+          (and (eq 'plain-list (org-element-type element))
+               ;; There should be less than 1 newline between current point
+               ;; and contents end since org use two blank lines to terminate
+               ;; a list.
+               (let* ((end (org-element-property :contents-end element))
+                      (str (buffer-substring end (point)))
+                      (len (length (s-match-strings-all "[\n]" str))))
+                 (<= len 1)))))))
+
+(defun org-autolist-return ()
+  "Use this to insert a new bullet at the end of a long list item
+consists of several paragraphs."
+  (interactive)
+  (if (org-autolist-at-item-end-p)
+      (org-insert-heading)
+    (indent-new-comment-line)))
+
+(define-key org-mode-map (kbd "M-j") #'org-autolist-return)
+
 (defadvice org-return (around org-autolist-return)
   "Wraps the `org-return' function to allow the Return key to \
 automatically insert new list items.
